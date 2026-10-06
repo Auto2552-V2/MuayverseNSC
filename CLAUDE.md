@@ -1,4 +1,4 @@
-# TICTA_Game — เกมชกมวยไทยด้วย AI Pose Detection
+# MuayverseNSC — เกมชกมวยไทยด้วย AI Pose Detection
 
 เกมชกมวยที่ผู้เล่นออกท่าจริงหน้ากล้อง ระบบ AI จำแนกท่าแล้วส่งผลไปยัง Unity
 เพื่อตัดสินว่าตอบโต้ท่าของ Enemy ถูกต้องหรือไม่
@@ -51,7 +51,11 @@ Unity (WebView ของ gree) → ตัดสิน → แสดงผล
 
 ## AI Detection
 
-อยู่ที่ `Muayverse_Remake/` (แยกจากโปรเจกต์ Unity)
+อยู่ที่ `AI_detection (Sparring)/` (แยกจากโปรเจกต์ Unity ที่ `Unity/Unity_Game/`)
+
+ชื่อโฟลเดอร์มีเว้นวรรคและวงเล็บ — ใน terminal ต้องครอบด้วยเครื่องหมายคำพูดเสมอ
+แต่**ห้ามเปลี่ยนชื่อ `web/` ข้างใน** — เทสต์ `build_deploy` และ URL ที่ Unity ใช้
+(`http://localhost:8000/web/`) ผูกกับชื่อนี้ เคยเปลี่ยนเป็น `web (local)` แล้ว `npm test` พังทั้งชุด
 
 ### Model
 
@@ -152,7 +156,7 @@ window เลื่อนทีละเฟรม หมัดเดียวจ
 ### คำสั่งที่ใช้บ่อย
 
 ```powershell
-cd D:\ticta\Muayverse_Remake
+cd "D:\MuayverseNSC\AI_detection (Sparring)"
 npm test                 # 4 ชุด: feature parity / tfjs parity / pipeline / gating
 npm run serve            # http://localhost:8000/web/
 npm run mock-unity       # จำลอง Unity รับ WebSocket
@@ -374,7 +378,7 @@ Player (`Animetion/PlayerControlller.controller`):
 [x] ท่อส่งข้อมูล — unity-webview / websocket / sendmessage
 [ ] เทสบน desktop (Unity Editor + Chrome ผ่าน WebSocket)   ← อยู่ตรงนี้
 [ ] Build Android — พิสูจน์ว่ากล้องเปิดได้ใน WebView        ← ความเสี่ยงหลักที่เหลือ
-[ ] Deploy HTTPS — host ไหนก็ได้ที่เป็น https:// (`npm run build:deploy` → `Muayverse_Remake/deploy/`)
+[ ] Deploy HTTPS — host ไหนก็ได้ที่เป็น https:// (`npm run build:deploy` → `AI_detection (Sparring)/deploy/`)
     ไม่ใช้ team12.aiforthai.in.th / `ticta-deploy` แล้ว — แยกโปรเจกต์ออกมาตั้งแต่ 2026-10-05
 [ ] วัดความแม่นตอนชกจริง + จูนตัวกรอง
 ```
