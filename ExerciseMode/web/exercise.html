@@ -12,12 +12,12 @@
   ต่อสู้ทำอยู่) จึงไม่ต้องเปิดเซิร์ฟเวอร์ Python และใช้ได้นอก LAN
 
   ที่มาของตัวเลข:
-    ExerciseMode/scripts/export_web.py  ->  tfjs_build/jab_siamese/bundle.json
+    scripts/export_web.py               ->  tfjs_build/jab_siamese/bundle.json
     web/exercise-scorer.js              ->  คำนวณ (พอร์ตจาก main.py, มีเทสต์คุม)
     node scripts/compare_exercise.mjs   ->  พิสูจน์ว่า JS ตรงกับ Python
 
   วิธีรัน — ต้องผ่าน http:// (getUserMedia ต้องการ secure context, file:// ใช้ไม่ได้):
-      cd Muayverse_Remake
+      cd ExerciseMode
       npm run serve
       เปิด http://localhost:8000/web/exercise.html
 

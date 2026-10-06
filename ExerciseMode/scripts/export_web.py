@@ -2,7 +2,7 @@
 export_web.py — ย่อโมเดล Siamese ให้เป็น JSON ที่หน้าเว็บคำนวณเองได้
 
     python scripts/export_web.py
-    python scripts/export_web.py --out ../Muayverse_Remake/tfjs_build/jab_siamese
+    python scripts/export_web.py --out <โฟลเดอร์อื่น>   # ค่าเริ่มต้น tfjs_build/jab_siamese
 
 ทำไมไม่แปลงเป็น TF.js: base network มีแค่ 99->32->16 (3,728 พารามิเตอร์)
 สองเมทริกซ์คูณกันเขียนด้วย JS ธรรมดาได้เลย ไม่ต้องลาก TF.js เข้ามาในหน้านี้
@@ -139,7 +139,7 @@ def probe_reference(refs):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--out', default='../Muayverse_Remake/tfjs_build/jab_siamese')
+    ap.add_argument('--out', default='tfjs_build/jab_siamese')
     args = ap.parse_args()
     out = (HERE / args.out).resolve()
     out.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,8 @@
+node_modules/
+
+# สร้างใหม่ได้ด้วย npm run build:deploy
+deploy/
+
+# โมเดล MediaPipe ~9MB โหลดใหม่ได้จาก storage.googleapis.com
+# (ไฟล์เดียวกับ AI_detection (Sparring)/web/models/)
+web/models/*.task

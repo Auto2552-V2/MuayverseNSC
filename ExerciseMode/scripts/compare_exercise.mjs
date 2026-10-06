@@ -1,5 +1,5 @@
 /**
- * Prove web/exercise-scorer.js matches ExerciseMode's Python side.
+ * Prove web/exercise-scorer.js matches the Python side (main.py / export_web.py).
  *
  *   node scripts/compare_exercise.mjs
  *
@@ -25,7 +25,7 @@ const dir = path.join(root, 'tfjs_build', 'jab_siamese');
 for (const f of ['bundle.json', 'fixtures.json']) {
   if (!fs.existsSync(path.join(dir, f))) {
     console.error(`missing tfjs_build/jab_siamese/${f}\n` +
-      '  run: cd ../ExerciseMode && python scripts/export_web.py');
+      '  run: python scripts/export_web.py');
     process.exit(1);
   }
 }

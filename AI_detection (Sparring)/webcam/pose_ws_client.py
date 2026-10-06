@@ -1,9 +1,9 @@
 """
 Webcam (or video file) -> MediaPipe Pose -> LSTM -> WebSocket -> Unity.
 
-    python py_client/pose_ws_client.py                  # webcam -> ws://127.0.0.1:8787
-    python py_client/pose_ws_client.py --no-ws          # webcam, print only
-    python py_client/pose_ws_client.py --video ../Video/JAB.mp4 --no-ws
+    python webcam/pose_ws_client.py                  # webcam -> ws://127.0.0.1:8787
+    python webcam/pose_ws_client.py --no-ws          # webcam, print only
+    python webcam/pose_ws_client.py --video ../Video/JAB.mp4 --no-ws
 
 Desktop test path only. The shipping path is the browser detector
 (web/pose-detector.js) inside the Android WebView -- see CLAUDE.md.

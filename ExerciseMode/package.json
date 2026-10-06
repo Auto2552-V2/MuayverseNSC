@@ -1,0 +1,11 @@
+{
+  "name": "muayverse-exercise",
+  "private": true,
+  "type": "module",
+  "description": "Jab practice mode (Siamese similarity) running in the browser",
+  "scripts": {
+    "test": "node scripts/compare_exercise.mjs",
+    "serve": "node scripts/serve.mjs",
+    "build:deploy": "node scripts/build_deploy.mjs"
+  }
+}

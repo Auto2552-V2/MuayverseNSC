@@ -6,7 +6,7 @@
 ```powershell
 # 1. เปิด Unity scene SparringMode แล้วกด Play  (PoseWebSocketServer รอที่ 8787)
 # 2. รันตัวนี้
-.venv\Scripts\python.exe py_client\pose_ws_client.py
+.venv\Scripts\python.exe webcam\pose_ws_client.py
 ```
 
 | ไฟล์ | หน้าที่ |

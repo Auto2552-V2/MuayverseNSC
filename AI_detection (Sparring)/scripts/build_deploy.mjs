@@ -31,12 +31,6 @@ const outDir = path.resolve(root, argOf('--out', 'deploy'));
 const COPY = [
   ['web/pose-detector.js', 'pose-detector.js'],
   ['web/pose-features.js', 'pose-features.js'],
-  // โหมดฝึกซ้อม (exercise.html) — ตัวให้คะแนนท่า jab เทียบท่าต้นแบบ
-  // bundle.json มีทั้งน้ำหนักโมเดลและ embedding ของท่าต้นแบบอยู่ในไฟล์เดียว
-  // fixtures.json ไม่ต้องอัป มันใช้แค่ตอน npm test
-  ['web/pose-camera.js', 'pose-camera.js'],
-  ['web/exercise-scorer.js', 'exercise-scorer.js'],
-  ['tfjs_build/jab_siamese/bundle.json', 'tfjs_build/jab_siamese/bundle.json'],
   // MediaPipe + tfjs ที่โฮสต์เอง — กันกรณีเน็ตปลายทางบล็อก CDN
   ['web/vendor/tf.min.js', 'vendor/tf.min.js'],
   ['web/vendor/mediapipe/vision_bundle.mjs', 'vendor/mediapipe/vision_bundle.mjs'],
@@ -94,9 +88,7 @@ for (const [from, to] of COPY) {
 // The pages: same files, with the dev-only parent-directory hops removed.
 //   index.html    the test harness (manual start, probability bars)
 //   game.html     what the Unity WebView loads -- auto-starts, no UI
-//   exercise.html      the jab practice mode, with the diagnostic panels
-//   exercise-play.html the same mode stripped to camera/time/reps/accuracy/feedback
-for (const page of ['index.html', 'game.html', 'exercise.html', 'exercise-play.html']) {
+for (const page of ['index.html', 'game.html']) {
   const src = path.join(root, 'web', page);
   if (!fs.existsSync(src)) { missing.push(`web/${page}`); continue; }
 
@@ -124,7 +116,7 @@ if (missing.length) {
 // Cross-check: every local URL the bundled pages name must exist in the bundle.
 // Catches a renamed model folder or a stale path that the copy list did not cover.
 const refs = [];
-for (const page of ['index.html', 'game.html', 'exercise.html', 'exercise-play.html']) {
+for (const page of ['index.html', 'game.html']) {
   const html = fs.readFileSync(path.join(outDir, page), 'utf8');
   refs.push(...[...html.matchAll(/['"]((?:tfjs_build|models)\/[^'"]+)['"]/g)].map((m) => m[1]));
 }

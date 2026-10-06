@@ -12,18 +12,18 @@ API และโมเดลประเมินท่ามวยไทย ร
 
 ## สถานะในโปรเจกต์ TICTA (ปรับปรุง 2026-10-05)
 
-โหมดฝึกซ้อมถูกย้ายไปรันในเบราว์เซอร์แล้วที่ `Muayverse_Remake/web/exercise.html`
+โหมดฝึกซ้อมถูกย้ายไปรันในเบราว์เซอร์แล้วที่ `web/exercise-play.html` (ดู `web/README.md`)
 **ไม่ต้องเปิดเซิร์ฟเวอร์ Python เพื่อเล่น** — เหตุผลเดียวกับที่โหมดต่อสู้เลิกใช้
 Python WebSocket server คือต้องมีคอมเปิดเซิร์ฟเวอร์ตลอดและใช้ได้แค่ใน LAN
 
 ```
 train_model.py            เทรน
-scripts/export_web.py     -> Muayverse_Remake/tfjs_build/jab_siamese/bundle.json
+scripts/export_web.py     -> tfjs_build/jab_siamese/bundle.json
                              (น้ำหนักโมเดล + embedding ท่าต้นแบบ + เกณฑ์ตัดสิน)
 ```
 
 ฝั่งเบราว์เซอร์คำนวณเอง (`web/exercise-scorer.js`) และมีเทสต์เทียบกับฝั่ง Python
-ที่ `npm run test:exercise` ใน `Muayverse_Remake` — **แก้สูตรที่ไหนต้องรันเทสต์นั้นใหม่**
+ที่ `npm test` ในโฟลเดอร์นี้ — **แก้สูตรที่ไหนต้องรันเทสต์นั้นใหม่**
 
 `main.py` ยังใช้ได้ แต่ตัวที่เล่นจริงคือหน้าเว็บ และสองฝั่งยังตัดสินไม่เหมือนกัน
 (ดู "สิ่งที่พบตอนย้าย" ด้านล่าง)
