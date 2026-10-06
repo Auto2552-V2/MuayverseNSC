@@ -1,0 +1,36 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+build/
+
+# ...ยกเว้นโฟลเดอร์ Build/ ของ WebGL ที่ Unity สร้าง — ชื่อดันไปชนกับกฎ build/
+# ข้างบนพอดี (Windows เทียบชื่อไฟล์แบบไม่สนตัวพิมพ์ B ใหญ่จึงโดนด้วย)
+#
+# ถ้าไม่ยกเว้น: git จะเงียบ ๆ ไม่เอาไฟล์เกมขึ้นไป แล้ว image ที่ deploy จะไม่มีเกม
+# เปิด /game/ แล้วได้ 404 ทั้งที่ในเครื่องตัวเองเล่นได้ปกติ — หาสาเหตุยากมาก
+!frontend/public/game/Build/
+
+# secrets — ห้าม commit เด็ดขาด (คู่มือผู้เข้าแข่งขัน หัวข้อ 12)
+# ค่าลับใส่ที่ GitLab > Settings > CI/CD > Variables ชื่อขึ้นต้นด้วย APP_
+.env
+.env.*
+!.env.example
+
+# runtime state ฝั่ง frontend ที่กำลังย้ายไป Supabase
+# (doctors.json / quests.json / rosters.json / session-secret)
+# ของพวกนี้เขียนลง container จะหายทุกครั้งที่ redeploy — อย่า commit
+.data/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# misc
+.DS_Store
+Thumbs.db
+*.pem
+npm-debug.log*
+yarn-error.log*

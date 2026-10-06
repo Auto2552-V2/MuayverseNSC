@@ -1,0 +1,177 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cca38db93be61042ab294a7e8df1757, type: 3}
+  m_Name: SongBeatmap
+  m_EditorClassIdentifier: 
+  song: {fileID: 8300000, guid: 7a473c497fc5a7b4c98a19b70b2f1e1e, type: 3}
+  bpm: 120
+  songOffsetSeconds: 0
+  snapDivision: 4
+  noteSpeed: 5
+  spawnDistance: 20
+  notes:
+  - slotIndex: 0
+    startBeat: 4
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 8
+    startBeat: 10.75
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 18
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 2
+    startBeat: 28.75
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 7
+    startBeat: 37.5
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 3
+    startBeat: 45
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 56
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 1
+    startBeat: 65.75
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 7
+    startBeat: 72
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 1
+    startBeat: 82.75
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 5
+    startBeat: 89.75
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 3
+    startBeat: 110.5
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 6
+    startBeat: 117
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 0
+    startBeat: 124
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 6
+    startBeat: 131
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 2
+    startBeat: 137.5
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 145
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 2
+    startBeat: 151.25
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 8
+    startBeat: 158.5
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 3
+    startBeat: 165.25
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 0
+    startBeat: 172.5
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 179.5
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 7
+    startBeat: 192.25
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 3
+    startBeat: 199.25
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 5
+    startBeat: 206
+    durationBeats: 7
+    noteType: 2
+  - slotIndex: 0
+    startBeat: 220
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 6
+    startBeat: 227
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 8
+    startBeat: 233.5
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 2
+    startBeat: 240.5
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 0
+    startBeat: 247.75
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 6
+    startBeat: 254.25
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 0
+    startBeat: 260.5
+    durationBeats: 3
+    noteType: 2
+  - slotIndex: 5
+    startBeat: 269.25
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 8
+    startBeat: 276
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 281.75
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 1
+    startBeat: 288
+    durationBeats: 2
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 295.25
+    durationBeats: 0
+    noteType: 0
+  - slotIndex: 7
+    startBeat: 301.75
+    durationBeats: 5
+    noteType: 2
+  - slotIndex: 4
+    startBeat: 295.25
+    durationBeats: 2
+    noteType: 2

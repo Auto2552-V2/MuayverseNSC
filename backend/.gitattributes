@@ -1,0 +1,32 @@
+# WebGL build ของ Unity ผ่าน Git LFS
+#
+# game.data.br ไฟล์เดียว 175 MB — ใส่ลง git ตรง ๆ ไม่ได้ด้วยสองเหตุผล:
+#   · GitLab/GitHub มี push limit ต่อไฟล์ และ blob จะฝังอยู่ใน history ถาวร
+#     ต่อให้ลบทีหลังก็ยังต้องโหลดทุกครั้งที่ clone
+#   · deploy job มี timeout 20 นาที ซึ่งรวมเวลา clone ด้วย
+#
+# ⚠️ ต้องตั้ง track ให้ครบ *ก่อน* git add ครั้งแรก — ถ้าไฟล์เข้า history ไปแล้ว
+#    การย้ายเข้า LFS ทีหลังต้องเขียน history ใหม่ทั้ง repo (git lfs migrate)
+#
+# ครอบทั้ง .br/.gz/ไม่บีบ เผื่อ build รอบหน้าเปลี่ยนวิธีบีบ — game.loader.js
+# (18 KB, เป็น text) จงใจไม่ใส่ ปล่อยให้อยู่ใน git ปกติจะ diff ได้
+frontend/public/game/Build/*.br filter=lfs diff=lfs merge=lfs -text
+frontend/public/game/Build/*.gz filter=lfs diff=lfs merge=lfs -text
+frontend/public/game/Build/*.data filter=lfs diff=lfs merge=lfs -text
+frontend/public/game/Build/*.wasm filter=lfs diff=lfs merge=lfs -text
+
+# โมเดล MediaPipe ของหน้า AI detection — pose_landmarker_full.task 9 MB
+# ตั้งกฎนี้ *ก่อน* commit แรกตามคำเตือนข้างบน ตอนนี้ไฟล์ยังไม่เข้า history
+# จึงยังทันพอดี ถ้า commit ไปก่อนแล้วต้อง git lfs migrate ทั้ง repo
+#
+# frontend/public/models/pose_landmarker_lite.task (5.8 MB) ที่ commit ไปแล้ว
+# อยู่ใน git ปกติ จงใจไม่ย้าย เพราะย้ายทีหลังต้องเขียน history ใหม่
+frontend/public/pose/models/*.task filter=lfs diff=lfs merge=lfs -text
+
+# MediaPipe WASM ที่โฮสต์เอง — ไฟล์ละ ~9 MB สองตัว (simd / nosimd)
+# โฮสต์เองเพราะถ้าเน็ตปลายทางบล็อก cdn.jsdelivr.net เกมจะพังทั้งที่มีเน็ต
+frontend/public/pose/vendor/**/*.wasm filter=lfs diff=lfs merge=lfs -text
+
+# น้ำหนักโมเดล LSTM 178 KB — เป็น binary เหมือนกันแต่เล็กพอจะอยู่ใน git ปกติ
+# ใส่ -text ไว้กันไม่ให้ git แปลง CRLF แล้วไฟล์พัง
+frontend/public/pose/tfjs_build/**/*.bin -text

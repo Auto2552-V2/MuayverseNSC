@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
+  <title>{{{ PRODUCT_NAME }}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;                 /* กัน scrollbar โผล่เด็ดขาด */
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      /* พื้นหลังรอบเครื่อง — ไล่เฉดอุ่นให้เข้ากับธีมแดงของแอป */
+      background: radial-gradient(ellipse at 50% 0%, #3a2420 0%, #17110f 55%, #0d0908 100%);
+    }
+
+    #stage {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;                    /* เว้นขอบไม่ให้เครื่องชนขอบจอ */
+    }
+
+    /* กรอบเครื่องมือถือ — ขนาดจริงถูกกำหนดโดย fit() ใน JS */
+    #phone {
+      position: relative;
+      border: 12px solid #1b1b1e;
+      border-radius: 42px;
+      background: #000;
+      box-shadow:
+        0 0 0 2px #2e2e33,                        /* ขอบโลหะบางๆ */
+        0 30px 70px -12px rgba(0, 0, 0, .8),      /* เงาทิ้งตัว */
+        0 0 90px -20px rgba(224, 27, 36, .35);    /* แสงแดงจางๆ จากตัวแอป */
+      overflow: hidden;
+      line-height: 0;                   /* กันช่องว่างใต้ canvas */
+    }
+
+    /* ติ่งกล้องหน้า */
+    #notch {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 34%;
+      height: 18px;
+      background: #1b1b1e;
+      border-radius: 0 0 14px 14px;
+      z-index: 3;
+      pointer-events: none;             /* ห้ามบังการคลิกลงเกม */
+    }
+
+    /* ---------- กล้องซ้อนอยู่ใต้เกม ----------
+       ซ่อนไว้จนกว่าซีนมินิเกมจะสั่งเปิด ไม่งั้นหน้าแอปปกติจะมีกล่องดำอยู่ข้างหลัง
+       จะเห็นทะลุ canvas ได้ต้องตั้ง Main Camera ของซีนนั้นเป็น
+       Clear Flags = Solid Color แล้วสีพื้นตั้ง A = 0 ด้วย ไม่งั้น Unity ล้างจอทึบบังหมด */
+    #cam {
+      display: none;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);            /* ส่องกระจก — ต้องตรงกับ CFG.mirror ใน pose-bridge.js */
+      z-index: 0;
+      background: #000;
+    }
+    #phone.cam-on #cam { display: block; }
+
+    #unity-canvas {
+      display: block;
+      position: relative;
+      z-index: 1;                       /* วางทับกล้อง */
+      background: transparent;          /* เดิมเป็น #14100f ซึ่งบังกล้องมิด */
+      outline: none;
+      touch-action: none;               /* กันเบราว์เซอร์มือถือแย่ง gesture ไป scroll/zoom */
+    }
+
+    /* ข้อความบอกสถานะกล้อง — ลอยล่างสุด ไม่บังเกม */
+    #camnote {
+      position: absolute;
+      left: 0; right: 0; bottom: 8px;
+      z-index: 4;
+      text-align: center;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #ffd9d9;
+      text-shadow: 0 1px 3px #000;
+      pointer-events: none;
+    }
+
+    /* ---------- บนมือถือจริง: ถอดกรอบทิ้ง ให้เต็มจอไปเลย ----------
+       ไม่มีใครอยากเห็นกรอบมือถือซ้อนอยู่บนมือถือ */
+    @media (max-width: 760px), (pointer: coarse) {
+      #stage  { padding: 0; }
+      #phone  { border: none; border-radius: 0; box-shadow: none; }
+      #notch  { display: none; }
+      #fs     { display: none; }
+    }
+
+    /* ตอนกดเต็มจอก็ถอดกรอบเหมือนกัน จะได้ใหญ่ที่สุด */
+    :fullscreen #stage { padding: 0; }
+    :fullscreen #phone { border: none; border-radius: 0; box-shadow: none; }
+    :fullscreen #notch { display: none; }
+
+    /* ---------- หน้าจอโหลด ---------- */
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      background: #14100f;
+      color: #fff;
+      transition: opacity .4s ease;
+    }
+    #loading.done { opacity: 0; pointer-events: none; }
+    #loading .name { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+
+    #bar {
+      width: min(240px, 60vw);
+      height: 6px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, .15);
+      overflow: hidden;
+    }
+    #fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 99px;
+      background: #e01b24;
+      transition: width .2s ease;
+    }
+    #pct { font-size: 13px; color: rgba(255, 255, 255, .55); }
+
+    /* ---------- ปุ่มเต็มจอ ---------- */
+    #fs {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 5;
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, .1);
+      color: #fff;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      opacity: .3;
+      transition: opacity .2s ease, background .2s ease;
+    }
+    #fs:hover { opacity: 1; background: rgba(255, 255, 255, .2); }
+
+    /* ---------- กล่อง error ---------- */
+    #err {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      z-index: 20;
+      transform: translate(-50%, -50%);
+      max-width: 80vw;
+      display: none;
+      padding: 18px 22px;
+      border-radius: 12px;
+      background: #2a1211;
+      color: #ffb4b0;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="phone">
+      <div id="notch"></div>
+      <video id="cam" playsinline muted autoplay></video>
+      <canvas id="unity-canvas" tabindex="-1"></canvas>
+      <div id="camnote"></div>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="name">{{{ PRODUCT_NAME }}}</div>
+    <div id="bar"><div id="fill"></div></div>
+    <div id="pct">0%</div>
+  </div>
+
+  <button id="fs" title="เต็มจอ">&#9974;</button>
+  <div id="err"></div>
+
+  <!-- ตัวแทน game_bridge.py สำหรับเว็บ — เปิดกล้อง รัน MediaPipe แล้วยิง JSON เข้า Unity
+       ต้องมาก่อน script ก้อนล่าง เพราะก้อนนั้นอ้าง window.TictaPose -->
+  <script src="pose-bridge.js"></script>
+
+  <script>
+    var stage   = document.querySelector("#stage");
+    var phone   = document.querySelector("#phone");
+    var canvas  = document.querySelector("#unity-canvas");
+    var loading = document.querySelector("#loading");
+    var fill    = document.querySelector("#fill");
+    var pct     = document.querySelector("#pct");
+    var errBox  = document.querySelector("#err");
+
+    // อัตราส่วนดึงมาจาก Player Settings → Default Canvas Width/Height โดยตรง
+    // แก้เลขคู่นั้นใน Unity แล้วสัดส่วนตรงนี้เปลี่ยนตามเอง ไม่ต้องมาแก้ไฟล์นี้
+    var ASPECT = {{{ WIDTH }}} / {{{ HEIGHT }}};
+
+    // หัวใจของ template นี้ — คำนวณขนาด canvas ใหม่ทุกครั้งที่หน้าต่างเปลี่ยน
+    // ยึดความสูงที่เหลือให้เต็มก่อน ถ้ากว้างล้นค่อยถอยมายึดความกว้างแทน
+    // ผลคือเครื่องใหญ่ที่สุดเท่าที่จอรับได้เสมอ โดยสัดส่วนไม่มีทางเพี้ยน
+    function fit() {
+      // clientWidth/Height รวม padding มาแล้ว ต้องหักออกเอง
+      var s = getComputedStyle(stage);
+      var availW = stage.clientWidth  - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight);
+      var availH = stage.clientHeight - parseFloat(s.paddingTop)  - parseFloat(s.paddingBottom);
+
+      // หักความหนาขอบเครื่องด้วย — อ่านจาก CSS จริง media query เลยมีผลเองอัตโนมัติ
+      var p = getComputedStyle(phone);
+      availW -= parseFloat(p.borderLeftWidth) + parseFloat(p.borderRightWidth);
+      availH -= parseFloat(p.borderTopWidth)  + parseFloat(p.borderBottomWidth);
+
+      var h = availH;
+      var w = h * ASPECT;
+      if (w > availW) { w = availW; h = w / ASPECT; }
+
+      canvas.style.width  = Math.round(w) + "px";
+      canvas.style.height = Math.round(h) + "px";
+    }
+
+    fit();
+    window.addEventListener("resize", fit);
+    window.addEventListener("orientationchange", fit);
+    document.addEventListener("fullscreenchange", fit);
+
+    // ขอเต็มจอที่ทั้งหน้า ไม่ใช่ที่ canvas
+    // ถ้าสั่ง canvas.requestFullscreen() ตรงๆ (แบบที่ปุ่มของ template Default ทำ)
+    // ตัว canvas จะถูกยืดเป็น 1920x1080 แนวนอน สัดส่วนพังทันที
+    document.querySelector("#fs").addEventListener("click", function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen();
+    });
+
+    var buildUrl = "Build";
+    var config = {
+      dataUrl:      buildUrl + "/{{{ DATA_FILENAME }}}",
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      codeUrl:      buildUrl + "/{{{ CODE_FILENAME }}}",
+#if MEMORY_FILENAME
+      memoryUrl:    buildUrl + "/{{{ MEMORY_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+      symbolsUrl:   buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+      streamingAssetsUrl: "StreamingAssets",
+      companyName:    "{{{ COMPANY_NAME }}}",
+      productName:    "{{{ PRODUCT_NAME }}}",
+      productVersion: "{{{ PRODUCT_VERSION }}}",
+      showBanner: function (msg, type) {
+        if (type === "error") {
+          errBox.style.display = "block";
+          errBox.textContent = msg;
+        } else {
+          console.warn(msg);
+        }
+      }
+    };
+
+    // บนมือถือเรนเดอร์ที่ 1x พอ — จอ retina ทำให้ pixel เยอะเกินจนเฟรมตก
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      config.devicePixelRatio = 1;
+    }
+
+    // ---------- กล้อง + ตรวจท่า ----------
+    // Unity เป็นคนสั่งเปิดตอนเข้าซีนมินิเกม (PoseCameraStarter.cs -> jslib -> ตรงนี้)
+    // ไม่เปิดตั้งแต่โหลดหน้า เพราะเบราว์เซอร์จะเด้งขอสิทธิ์กล้องใส่ผู้เล่นทั้งที่ยังอยู่
+    // หน้าล็อกอิน ซึ่งคนส่วนใหญ่จะกดปฏิเสธแล้วพอถึงตอนใช้จริงกลับขอใหม่ไม่ได้
+    var poseSession = null;
+
+    function camNote(msg) {
+      document.getElementById("camnote").textContent = msg || "";
+    }
+
+    window.TictaStartPoseCamera = function () {
+      if (poseSession) return;                                  // กันสั่งซ้ำตอนโหลดซีนใหม่
+      if (!window.TictaPose) { camNote("ไม่พบ pose-bridge.js"); return; }
+      document.getElementById("phone").classList.add("cam-on");
+      window.TictaPose.start(document.getElementById("cam"), camNote)
+        .then(function (s) { poseSession = s; });
+    };
+
+    window.TictaStopPoseCamera = function () {
+      if (poseSession) { poseSession.stop(); poseSession = null; }
+      document.getElementById("phone").classList.remove("cam-on");
+      camNote("");
+    };
+
+    var script = document.createElement("script");
+    script.src = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (progress) {
+        var p = Math.round(progress * 100);
+        fill.style.width = p + "%";
+        pct.textContent = p + "%";
+      }).then(function (instance) {
+        window.unityInstance = instance;
+        loading.classList.add("done");
+        setTimeout(function () { loading.remove(); }, 400);
+        fit();   // เรียกซ้ำหลังโหลดจบ ให้ Unity รับขนาดที่ถูกต้องแน่ๆ
+      }).catch(function (message) {
+        errBox.style.display = "block";
+        errBox.textContent = message;
+      });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
