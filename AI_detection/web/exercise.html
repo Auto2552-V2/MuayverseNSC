@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muayverse — โหมดฝึกซ้อม Jab</title>
+<!--
+  โหมดฝึกซ้อม: ชก jab ให้เหมือนท่าต้นแบบของครูมวย แล้วได้คะแนนความคล้ายเป็นเปอร์เซ็นต์
+
+  เดิมส่วนนี้คือ ExerciseMode/main.py — FastAPI WebSocket ที่รับ keypoint จากแอป
+  แล้วคำนวณฝั่งเซิร์ฟเวอร์ หน้านี้ย้ายมาคำนวณบนเครื่องผู้เล่นทั้งหมด (เหมือนที่โหมด
+  ต่อสู้ทำอยู่) จึงไม่ต้องเปิดเซิร์ฟเวอร์ Python และใช้ได้นอก LAN
+
+  ที่มาของตัวเลข:
+    ExerciseMode/scripts/export_web.py  ->  tfjs_build/jab_siamese/bundle.json
+    web/exercise-scorer.js              ->  คำนวณ (พอร์ตจาก main.py, มีเทสต์คุม)
+    node scripts/compare_exercise.mjs   ->  พิสูจน์ว่า JS ตรงกับ Python
+
+  วิธีรัน — ต้องผ่าน http:// (getUserMedia ต้องการ secure context, file:// ใช้ไม่ได้):
+      cd Muayverse_Remake
+      npm run serve
+      เปิด http://localhost:8000/web/exercise.html
+
+  query string:
+    ?debug=1   โชว์ระยะดิบ เฟรมต้นแบบที่แมตช์ fps และสถานะแขนทั้งสองข้าง
+    ?free=1    ฝึกแบบไม่จับเวลา (ปิดโหมดรอบ 60 วินาที)
+    ?seconds=90  ความยาวรอบ
+    ?strict=1  บังคับข้างมือ ไม่ลองเทียบท่าแบบพลิกซ้ายขวา
+-->
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #272b35;
+    --text: #e7e9ee; --dim: #9aa1ad; --accent: #4da3ff;
+    --ok: #3ddc84; --warn: #ffb02e; --bad: #ff5c5c; --gold: #ffd54a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--bg); color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--dim); margin-bottom: 16px; font-size: 13px; }
+  .wrap { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 16px; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line);
+           border-radius: 10px; padding: 14px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+              color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  button {
+    background: var(--accent); color: #06101d; border: 0; border-radius: 8px;
+    padding: 9px 16px; font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  button:disabled { background: #333843; color: var(--dim); cursor: default; }
+  button.ghost { background: #222733; color: var(--text); }
+
+  /* <video> เป็นแค่แหล่งภาพดิบ ไม่โชว์ — ที่โชว์คือ canvas ที่พลิกแล้วของ PoseCamera
+     ซึ่งเป็นภาพเดียวกับที่ MediaPipe เห็น  ห้ามพลิกด้วย CSS transform ที่นี่
+     ไม่งั้น skeleton จะไม่ทับตัวคน (ภาพพลิกสองรอบ แต่พิกัดพลิกรอบเดียว) */
+  #stage { position: relative; background: #000; border-radius: 10px; overflow: hidden; }
+  #stage video { display: none; }
+  #stage canvas#view { width: 100%; display: block; }
+  #overlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ป้ายบนภาพ */
+  .hud { position: absolute; inset: 0; pointer-events: none;
+         font-variant-numeric: tabular-nums; }
+  .hud .tl { position: absolute; top: 12px; left: 14px; }
+  .hud .tr { position: absolute; top: 12px; right: 14px; text-align: right; }
+  .hud .bl { position: absolute; bottom: 12px; left: 14px; }
+  .hud .big { font-size: 46px; font-weight: 800; line-height: 1;
+              text-shadow: 0 2px 10px #000a; }
+  .hud .lbl { font-size: 11px; color: #cfd4dd; letter-spacing: .08em;
+              text-transform: uppercase; text-shadow: 0 1px 6px #000a; }
+  #grade { position: absolute; left: 0; right: 0; top: 38%; text-align: center;
+           font-size: 54px; font-weight: 900; letter-spacing: .02em; opacity: 0;
+           text-shadow: 0 3px 16px #000c; pointer-events: none; }
+  #grade.show { animation: pop .75s ease-out; }
+  @keyframes pop {
+    0%   { opacity: 0; transform: scale(.7); }
+    18%  { opacity: 1; transform: scale(1.12); }
+    55%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1); }
+  }
+  #coach { position: absolute; left: 0; right: 0; bottom: 56px; text-align: center;
+           font-size: 17px; font-weight: 700; color: var(--warn);
+           text-shadow: 0 2px 10px #000b; min-height: 24px; }
+
+  /* วงคะแนนความคล้าย */
+  .ring { display: block; margin: 0 auto 4px; }
+  .ring .bgc { stroke: #0b0d11; }
+  .ring .fgc { stroke: var(--accent); transition: stroke-dashoffset .08s linear, stroke .2s; }
+  .ringval { text-align: center; font-size: 13px; color: var(--dim); }
+
+  .kv { display: flex; justify-content: space-between; gap: 10px;
+        padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: var(--dim); }
+  .kv span:last-child { font-variant-numeric: tabular-nums; }
+
+  .bar .track { height: 8px; background: #0b0d11; border-radius: 5px; overflow: hidden; }
+  .bar .fill { height: 100%; width: 0; background: var(--accent); transition: width .08s linear; }
+  .bar .lbl { display: flex; justify-content: space-between; font-size: 12px;
+              color: var(--dim); margin: 6px 0 3px; }
+
+  #reps { font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+          max-height: 200px; overflow-y: auto; }
+  #reps div { padding: 3px 0; border-bottom: 1px solid var(--line);
+              display: flex; justify-content: space-between; gap: 8px; }
+  .g-PERFECT { color: var(--gold); font-weight: 700; }
+  .g-GOOD { color: var(--ok); font-weight: 700; }
+  .g-OK { color: var(--warn); }
+  #status { font-size: 12px; color: var(--dim); white-space: pre-wrap;
+            font-family: ui-monospace, Consolas, monospace;
+            max-height: 130px; overflow-y: auto; }
+  .note { font-size: 12px; color: var(--warn); margin-top: 10px; min-height: 18px; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 99px;
+          border: 1px solid var(--line); color: var(--dim); }
+  .pill.on { color: var(--ok); border-color: var(--ok); }
+  .pill.off { color: var(--bad); border-color: var(--bad); }
+  .dbg { display: none; }
+  body.debug .dbg { display: block; }
+
+  /* สรุปท้ายรอบ */
+  #summary { position: fixed; inset: 0; background: #0b0d11e8; display: none;
+             place-items: center; z-index: 10; padding: 16px; }
+  #summary.show { display: grid; }
+  #summary .card { background: var(--panel); border: 1px solid var(--line);
+                   border-radius: 14px; padding: 24px 28px; max-width: 420px; width: 100%; }
+  #summary h2 { margin: 0 0 2px; font-size: 22px; }
+  #summary .final { font-size: 52px; font-weight: 900; margin: 10px 0 2px; }
+</style>
+</head>
+<body>
+
+<h1>โหมดฝึกซ้อม — Jab</h1>
+<div class="sub">
+  ยืนให้เห็นตั้งแต่สะโพกขึ้นมา ตั้งการ์ด แล้วชก jab ออกให้สุดแขนแล้วดึงกลับ
+  ระบบเทียบท่ากับคลิปต้นแบบของครูมวยแล้วให้คะแนนความคล้าย
+</div>
+
+<div class="row">
+  <button id="btnStart">เริ่มกล้อง</button>
+  <button id="btnRound" class="ghost" disabled>เริ่มรอบ</button>
+  <button id="btnStop" class="ghost" disabled>หยุด</button>
+  <span class="pill" id="pillPose">กล้อง: ยังไม่เริ่ม</span>
+  <span class="pill" id="pillModel">โมเดล: ยังไม่โหลด</span>
+  <span class="pill dbg" id="pillFps">fps —</span>
+</div>
+
+<div class="wrap">
+  <div>
+    <div class="panel">
+      <div id="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div class="hud">
+          <div class="tl">
+            <div class="lbl">ความคล้ายท่า</div>
+            <div class="big" id="hudPercent">—</div>
+          </div>
+          <div class="tr">
+            <div class="lbl">หมัดที่นับได้</div>
+            <div class="big" id="hudReps">0</div>
+          </div>
+          <div class="bl">
+            <div class="lbl">เวลา / คะแนน</div>
+            <div class="big" id="hudClock">—</div>
+          </div>
+          <div id="grade"></div>
+          <div id="coach"></div>
+        </div>
+      </div>
+      <div class="note" id="note"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>หมัดที่นับได้ในรอบนี้</h2>
+      <div id="reps"><div><span>ยังไม่มี — ตั้งการ์ดแล้วชกดู</span><span></span></div></div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>คะแนนเฟรมนี้</h2>
+      <svg class="ring" width="150" height="150" viewBox="0 0 150 150">
+        <circle class="bgc" cx="75" cy="75" r="62" fill="none" stroke-width="13"/>
+        <circle class="fgc" id="ringFg" cx="75" cy="75" r="62" fill="none" stroke-width="13"
+                stroke-linecap="round" transform="rotate(-90 75 75)"
+                stroke-dasharray="389.56" stroke-dashoffset="389.56"/>
+        <text id="ringTxt" x="75" y="84" text-anchor="middle" fill="#e7e9ee"
+              font-size="34" font-weight="800" font-family="system-ui">—</text>
+      </svg>
+      <div class="ringval" id="ringSub">รอเริ่มกล้อง</div>
+
+      <div class="bar">
+        <div class="lbl"><span>ข้อศอกแขนซ้าย</span><span id="angL">—</span></div>
+        <div class="track"><div class="fill" id="barL"></div></div>
+      </div>
+      <div class="bar">
+        <div class="lbl"><span>ข้อศอกแขนขวา</span><span id="angR">—</span></div>
+        <div class="track"><div class="fill" id="barR"></div></div>
+      </div>
+      <div class="bar">
+        <div class="lbl"><span>ความเร็วข้อมือ (แขนนำ)</span><span id="spd">—</span></div>
+        <div class="track"><div class="fill" id="barS"></div></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>สรุปรอบ</h2>
+      <div class="kv"><span>หมัดทั้งหมด</span><span id="sReps">0</span></div>
+      <div class="kv"><span>คะแนน</span><span id="sPoints">0</span></div>
+      <div class="kv"><span>ความคล้ายเฉลี่ย</span><span id="sAvg">—</span></div>
+      <div class="kv"><span>ดีที่สุด</span><span id="sBest">—</span></div>
+      <div class="kv"><span>คอมโบสูงสุด</span><span id="sCombo">0</span></div>
+    </div>
+
+    <div class="panel dbg" style="margin-top:16px">
+      <h2>ดีบัก</h2>
+      <div class="kv"><span>ระยะที่ใกล้สุด</span><span id="dDist">—</span></div>
+      <div class="kv"><span>เฟรมต้นแบบที่แมตช์</span><span id="dRef">—</span></div>
+      <div class="kv"><span>ทิศที่แมตช์</span><span id="dMir">—</span></div>
+      <div class="kv"><span>cosine (ด่านกรองท่า)</span><span id="dCos">—</span></div>
+      <div class="kv"><span>สถานะแขน L / R</span><span id="dPhase">—</span></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2>สถานะ</h2>
+      <div id="status">รอเริ่ม…</div>
+    </div>
+  </div>
+</div>
+
+<div id="summary"><div class="card">
+  <h2 id="smTitle">จบรอบ</h2>
+  <div class="sub" id="smSub"></div>
+  <div class="final" id="smPoints">0</div>
+  <div class="sub">คะแนนรวม</div>
+  <div class="kv"><span>หมัดที่นับได้</span><span id="smReps">0</span></div>
+  <div class="kv"><span>ความคล้ายเฉลี่ย</span><span id="smAvg">—</span></div>
+  <div class="kv"><span>ดีที่สุด</span><span id="smBest">—</span></div>
+  <div class="kv"><span>คอมโบสูงสุด</span><span id="smCombo">0</span></div>
+  <div class="row" style="margin:16px 0 0"><button id="btnAgain">เอาอีกรอบ</button>
+    <button id="btnClose" class="ghost">ปิด</button></div>
+</div></div>
+
+<script type="module">
+import { PoseCamera } from './pose-camera.js';
+import { JabScorer } from './exercise-scorer.js';
+
+const qs = new URLSearchParams(location.search);
+const DEBUG = qs.get('debug') === '1';
+const FREE = qs.get('free') === '1';
+const STRICT = qs.get('strict') === '1';
+const ROUND_SECONDS = Math.max(10, Number(qs.get('seconds')) || 60);
+if (DEBUG) document.body.classList.add('debug');
+
+const $ = (id) => document.getElementById(id);
+const video = $('video'), overlay = $('overlay'), ctx = overlay.getContext('2d');
+
+const statusLines = [];
+const say = (msg) => {
+  statusLines.push(msg);
+  $('status').textContent = statusLines.slice(-10).join('\n');
+};
+
+const camera = new PoseCamera({ poseModelUrl: 'models/pose_landmarker_full.task' });
+camera.onStatus = say;
+let scorer = null;
+
+// ── สถานะรอบ ────────────────────────────────────────────────────────────────
+// คะแนนต่อหมัด: PERFECT 3 / GOOD 2 / OK 1 คูณด้วยคอมโบ (นับหมัดที่ได้ GOOD ขึ้นไป
+// ติดกัน สูงสุด x3) — ตั้งใจให้ "ชกถูกฟอร์มติดกัน" คุ้มกว่าชกรัว ๆ ให้ครบจำนวน
+const POINTS = { PERFECT: 3, GOOD: 2, OK: 1 };
+const round = {
+  active: false, endsAt: 0,
+  reps: 0, points: 0, sum: 0, best: 0, combo: 0, maxCombo: 0,
+};
+
+function resetRound() {
+  Object.assign(round, { reps: 0, points: 0, sum: 0, best: 0, combo: 0, maxCombo: 0 });
+  scorer?.reset();
+  $('reps').innerHTML = '<div><span>ยังไม่มี — ตั้งการ์ดแล้วชกดู</span><span></span></div>';
+  paintRoundStats();
+}
+
+function paintRoundStats() {
+  $('sReps').textContent = round.reps;
+  $('sPoints').textContent = round.points;
+  $('sAvg').textContent = round.reps ? (round.sum / round.reps).toFixed(0) + '%' : '—';
+  $('sBest').textContent = round.reps ? round.best.toFixed(0) + '%' : '—';
+  $('sCombo').textContent = round.maxCombo;
+  $('hudReps').textContent = round.reps;
+}
+
+function startRound() {
+  resetRound();
+  round.active = true;
+  round.endsAt = performance.now() + ROUND_SECONDS * 1000;
+  $('summary').classList.remove('show');
+  // ปุ่มเดียวทำสองหน้าที่ — ในโหมด ?free=1 ไม่มีเวลาหมด ถ้าปุ่มนี้ปิดไว้ระหว่างรอบ
+  // จะไม่มีทางปิดรอบเพื่อดูสรุปได้เลยนอกจากหยุดกล้องทิ้ง
+  $('btnRound').textContent = 'จบรอบ';
+  showGrade(FREE ? 'ฝึกได้เลย' : 'เริ่ม!', 'var(--accent)');
+}
+
+function endRound() {
+  round.active = false;
+  $('btnRound').disabled = false;
+  $('btnRound').textContent = 'เริ่มรอบ';
+  const avg = round.reps ? round.sum / round.reps : 0;
+  $('smTitle').textContent = round.reps ? 'จบรอบ' : 'ไม่มีหมัดที่นับได้';
+  $('smSub').textContent = round.reps
+    ? `${ROUND_SECONDS} วินาที — ${round.reps} หมัด`
+    : 'ลองยืนให้เห็นสะโพกขึ้นมา แล้วชกให้สุดแขนจนข้อศอกเหยียด';
+  $('smPoints').textContent = round.points;
+  $('smReps').textContent = round.reps;
+  $('smAvg').textContent = round.reps ? avg.toFixed(0) + '%' : '—';
+  $('smBest').textContent = round.reps ? round.best.toFixed(0) + '%' : '—';
+  $('smCombo').textContent = round.maxCombo;
+  $('summary').classList.add('show');
+}
+
+// ── ป้ายกลางจอ ──────────────────────────────────────────────────────────────
+let gradeTimer = null;
+function showGrade(text, color) {
+  const el = $('grade');
+  el.textContent = text;
+  el.style.color = color;
+  el.classList.remove('show');
+  void el.offsetWidth;                 // บังคับให้ animation เริ่มใหม่
+  el.classList.add('show');
+  clearTimeout(gradeTimer);
+  gradeTimer = setTimeout(() => el.classList.remove('show'), 800);
+}
+
+const COACH = {
+  slow: 'ออกหมัดให้เร็วขึ้น',
+  extend: 'ยืดแขนให้สุดกว่านี้',
+  offpose: 'หันหน้าเข้ากล้องให้เห็นลำตัวกับแขนทั้งสองข้าง',
+  nopose: 'ไม่เห็นตัวในกล้อง — ถอยออกให้เห็นสะโพกขึ้นมา',
+};
+let coachUntil = 0;
+function coach(msg, ms = 1200) {
+  $('coach').textContent = msg;
+  coachUntil = performance.now() + ms;
+}
+
+function onRep(rep) {
+  round.reps += 1;
+  round.sum += rep.percent;
+  round.best = Math.max(round.best, rep.percent);
+  if (rep.grade === 'OK') round.combo = 0;
+  else { round.combo += 1; round.maxCombo = Math.max(round.maxCombo, round.combo); }
+  const mult = Math.min(3, Math.max(1, round.combo));
+  round.points += POINTS[rep.grade] * mult;
+
+  const color = rep.grade === 'PERFECT' ? 'var(--gold)'
+              : rep.grade === 'GOOD' ? 'var(--ok)' : 'var(--warn)';
+  showGrade(rep.grade + (mult > 1 ? ` x${mult}` : ''), color);
+
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="g-${rep.grade}">#${round.reps} ${rep.grade}</span>` +
+    `<span>${rep.percent.toFixed(0)}% · ${rep.arm === 'left' ? 'ซ้าย' : 'ขวา'} · ` +
+    `${rep.peakAngle.toFixed(0)}°</span>`;
+  const box = $('reps');
+  if (round.reps === 1) box.innerHTML = '';
+  box.prepend(line);
+  paintRoundStats();
+}
+
+// ── วาดโครงกระดูก ───────────────────────────────────────────────────────────
+// วาดจาก landmark ของเฟรมที่ MediaPipe เพิ่งอ่าน (ซึ่งเป็นภาพที่พลิกแล้ว)
+// จึงทับตัวคนพอดีโดยไม่ต้องแปลงพิกัดอะไรอีก
+const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24]];
+let lastLandmarks = null;
+let viewAttached = false;
+
+function paintStage() {
+  if (!camera.running) return;
+  if (!viewAttached && camera.mirrorCanvas) {
+    camera.mirrorCanvas.id = 'view';
+    $('stage').insertBefore(camera.mirrorCanvas, overlay);
+    viewAttached = true;
+  }
+  const w = video.videoWidth, h = video.videoHeight;
+  if (w && (overlay.width !== w || overlay.height !== h)) {
+    overlay.width = w; overlay.height = h;
+  }
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  const lm = lastLandmarks;
+  if (lm) {
+    const px = (i) => [lm[i].x * overlay.width, lm[i].y * overlay.height];
+    ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 3;
+    for (const [a, b] of BONES) {
+      const [x1,y1] = px(a), [x2,y2] = px(b);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+    // ไฮไลต์แขนนำเป็นสีตามคะแนนเฟรมนี้ ให้เห็นว่าระบบกำลังมองแขนไหน
+    if (leadArm) {
+      const idx = scorer.arms[leadArm];
+      ctx.strokeStyle = livePercent >= 80 ? '#ffd54a'
+                      : livePercent >= 60 ? '#3ddc84' : '#ff5c5c';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      const [sx,sy] = px(idx[0]), [ex,ey] = px(idx[1]), [wx,wy] = px(idx[2]);
+      ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.lineTo(wx,wy); ctx.stroke();
+    }
+    ctx.fillStyle = '#3ddc84';
+    for (const i of [11,12,13,14,15,16,23,24]) {
+      const [x,y] = px(i);
+      ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  requestAnimationFrame(paintStage);
+}
+
+// ── วงคะแนน ─────────────────────────────────────────────────────────────────
+const CIRC = 2 * Math.PI * 62;
+function paintRing(percent, present) {
+  const p = present ? percent : 0;
+  $('ringFg').style.strokeDashoffset = CIRC * (1 - p / 100);
+  $('ringFg').style.stroke = p >= 80 ? 'var(--gold)' : p >= 60 ? 'var(--ok)' : 'var(--accent)';
+  $('ringTxt').textContent = present ? Math.round(p) : '—';
+  $('hudPercent').textContent = present ? Math.round(p) + '%' : '—';
+}
+
+// ── ลูปต่อเฟรม ──────────────────────────────────────────────────────────────
+let livePercent = 0, leadArm = null;
+let frames = 0, fpsAt = performance.now();
+
+camera.onFrame = (landmarks, nowMs) => {
+  lastLandmarks = landmarks;
+  if (++frames >= 20) {
+    $('pillFps').textContent = `fps ${(frames * 1000 / (nowMs - fpsAt)).toFixed(0)}`;
+    frames = 0; fpsAt = nowMs;
+  }
+  if (!scorer) return;
+
+  const r = scorer.update(landmarks, nowMs);
+
+  const pill = $('pillPose');
+  if (r.present) { pill.textContent = 'กล้อง: เห็นตัวแล้ว'; pill.className = 'pill on'; }
+  else { pill.textContent = 'กล้อง: ไม่เห็นตัว'; pill.className = 'pill off'; }
+
+  if (!r.present) {
+    paintRing(0, false);
+    $('ringSub').textContent = 'ไม่เห็นตัวในกล้อง';
+    coach(COACH.nopose, 600);
+    leadArm = null;
+  } else {
+    livePercent = r.percent;
+    leadArm = r.lead;
+    paintRing(r.percent, true);
+    // ตอนตั้งการ์ดคะแนนจะเป็น 0 ตามที่ควรเป็น — ชุดต้นแบบมีแค่เฟรมที่หมัดยืดสุด
+    $('ringSub').textContent = !r.plausible ? 'ท่าไม่ตรงกับชุดต้นแบบ'
+      : r.percent >= 80 ? 'ฟอร์มใกล้ท่าต้นแบบมาก'
+      : r.percent >= 60 ? 'ฟอร์มใกล้ท่าต้นแบบ'
+      : r.percent > 0 ? 'ยังห่างจากท่าต้นแบบ'
+      : 'ยังไม่ใช่จังหวะหมัดยืด';
+
+    for (const [arm, el, bar] of [['left','angL','barL'], ['right','angR','barR']]) {
+      const a = r.arms[arm];
+      $(el).textContent = a.angle.toFixed(0) + '°';
+      $(bar).style.width = Math.min(100, a.angle / 180 * 100) + '%';
+      $(bar).style.background = a.angle >= scorer.cfg.extendMinDeg ? 'var(--ok)' : 'var(--accent)';
+    }
+    const spd = r.arms[r.lead].speed;
+    $('spd').textContent = spd.toFixed(2) + '/s';
+    $('barS').style.width = Math.min(100, spd / (scorer.cfg.wristSpeedMin * 3) * 100) + '%';
+    $('barS').style.background = spd >= scorer.cfg.wristSpeedMin ? 'var(--ok)' : 'var(--accent)';
+
+    if (DEBUG) {
+      $('dDist').textContent = r.minDist.toFixed(4);
+      $('dRef').textContent = `#${r.refIndex} / ${scorer.nRefs}`;
+      $('dMir').textContent = r.mirrored ? 'พลิกซ้ายขวา' : 'ตามที่เห็น';
+      $('dCos').textContent = `${r.cosine.toFixed(3)} (ขั้นต่ำ ${scorer.cfg.cosineMin})`;
+      $('dPhase').textContent = `${r.arms.left.phase} / ${r.arms.right.phase}`;
+    }
+
+    if (r.rep && round.active) onRep(r.rep);
+    else if (r.rep) coach('กดปุ่ม "เริ่มรอบ" ก่อน หมัดนี้ยังไม่นับคะแนน', 1000);
+    else if (r.feedback && COACH[r.feedback]) coach(COACH[r.feedback]);
+  }
+
+  if (performance.now() > coachUntil) $('coach').textContent = '';
+
+  if (round.active) {
+    if (FREE) {
+      $('hudClock').textContent = String(round.points);
+    } else {
+      const left = Math.max(0, round.endsAt - nowMs);
+      $('hudClock').textContent = `${Math.ceil(left / 1000)}s · ${round.points}`;
+      if (left <= 0) endRound();
+    }
+  } else {
+    $('hudClock').textContent = '—';
+  }
+};
+
+// ── ปุ่ม ────────────────────────────────────────────────────────────────────
+$('btnStart').addEventListener('click', async () => {
+  $('btnStart').disabled = true;
+  $('note').textContent = '';
+  try {
+    scorer = await JabScorer.load('../tfjs_build/jab_siamese/bundle.json');
+    if (STRICT) {
+      // ปิดการลองเทียบแบบพลิกซ้ายขวา — ใช้ตรวจว่าชุดต้นแบบเก็บมาทิศไหน
+      const orig = scorer.score.bind(scorer);
+      scorer.score = (flat) => orig(flat, true);
+      say('โหมด strict: เทียบเฉพาะทิศที่เห็น ไม่ลองพลิกซ้ายขวา');
+    }
+    say(`bundle: ท่าต้นแบบ ${scorer.nRefs} เฟรม · embedding ${scorer.embDim} มิติ · ` +
+        `เทรนเมื่อ ${scorer.bundle.created}`);
+    $('pillModel').textContent = `โมเดล: พร้อม (${scorer.nRefs} เฟรมต้นแบบ)`;
+    $('pillModel').className = 'pill on';
+
+    await camera.init();
+    await camera.start(video);
+    $('btnRound').disabled = false;
+    $('btnStop').disabled = false;
+    paintStage();
+    say('พร้อม — กด "เริ่มรอบ" เพื่อเริ่มจับเวลา');
+  } catch (e) {
+    $('note').textContent = 'เริ่มไม่สำเร็จ: ' + e.message;
+    $('pillModel').className = 'pill off';
+    $('btnStart').disabled = false;
+    console.error(e);
+  }
+});
+
+$('btnRound').addEventListener('click', () => {
+  if (round.active) endRound(); else startRound();
+});
+$('btnAgain').addEventListener('click', startRound);
+$('btnClose').addEventListener('click', () => $('summary').classList.remove('show'));
+
+$('btnStop').addEventListener('click', () => {
+  camera.stop();
+  if (round.active) endRound();
+  if (viewAttached) { camera.mirrorCanvas.remove(); viewAttached = false; }
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+  $('btnStop').disabled = true;
+  $('btnRound').disabled = true;
+  $('btnRound').textContent = 'เริ่มรอบ';
+  $('btnStart').disabled = false;
+  $('pillPose').textContent = 'กล้อง: หยุดแล้ว';
+  $('pillPose').className = 'pill';
+});
+</script>
+</body>
+</html>

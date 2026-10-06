@@ -1,0 +1,20 @@
+{
+  "name": "muayverse-tfjs-tools",
+  "private": true,
+  "type": "module",
+  "description": "Browser pose-detection pipeline + Keras -> TF.js checks for the pose action classifier",
+  "scripts": {
+    "compare": "node scripts/compare_tfjs.mjs tfjs_build/pose_action",
+    "test:features": "node scripts/compare_features.mjs",
+    "test:pipeline": "node scripts/verify_pipeline.mjs",
+    "test:gating": "node scripts/verify_gating.mjs",
+    "test:exercise": "node scripts/compare_exercise.mjs",
+    "test": "npm run test:features && npm run compare && npm run test:pipeline && npm run test:gating && npm run test:exercise",
+    "serve": "node scripts/serve.mjs",
+    "build:deploy": "node scripts/build_deploy.mjs",
+    "mock-unity": "node scripts/mock_unity_ws.mjs"
+  },
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0"
+  }
+}

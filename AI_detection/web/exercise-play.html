@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Muayverse — ฝึกซ้อม Jab</title>
+<!--
+  หน้าเล่นจริงของโหมดฝึกซ้อม — มีแค่ กล้อง / เวลา / จำนวนหมัด / ความแม่นยำ / feedback
+
+  ออกแบบที่ขนาดคงที่ 1300 x 2800 (จอตั้งแนวตั้ง) แล้วย่อ-ขยายทั้งแผ่นให้พอดีหน้าต่าง
+  ด้วย transform: scale() ดังนั้นสัดส่วนทุกอย่างคงที่ไม่ว่าจะเปิดบนจออะไร
+  ถ้าจะเปลี่ยนขนาด แก้ที่ STAGE_W / STAGE_H ที่เดียว (ทั้ง CSS และ JS อ่านจากตัวแปรเดียวกัน)
+
+  หน้า exercise.html ยังอยู่ — เป็นหน้าสำหรับไล่ปัญหา (แถบองศา ระยะดิบ cosine fps)
+  หน้านี้ตั้งใจให้ไม่มีอะไรนอกจากของห้าอย่างข้างบน
+
+  วิธีรัน — ต้องผ่าน http:// (getUserMedia ต้องการ secure context, file:// ใช้ไม่ได้):
+      cd Muayverse_Remake
+      npm run serve
+      เปิด http://localhost:8000/web/exercise-play.html
+
+  query string:
+    ?seconds=90   ความยาวรอบ (ค่าเริ่มต้น 60)
+    ?free=1       ไม่จับเวลา
+-->
+<style>
+  :root {
+    --stage-w: 1300px;
+    --stage-h: 2800px;
+    --bg: #0b0d11; --panel: #171a21; --line: #272b35;
+    --text: #e7e9ee; --dim: #8b93a0; --accent: #4da3ff;
+    --ok: #3ddc84; --warn: #ffb02e; --bad: #ff5c5c; --gold: #ffd54a;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: #000; color: var(--text); overflow: hidden;
+    font: 400 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+
+  /* แผ่นงานขนาดคงที่ — JS ตั้ง scale ให้พอดีหน้าต่าง ส่วน CSS ไม่ต้องรู้ขนาดจอ */
+  #fit { position: absolute; top: 0; left: 0; transform-origin: top left; }
+  #stage {
+    width: var(--stage-w); height: var(--stage-h); background: var(--bg);
+    padding: 40px; display: flex; flex-direction: column; gap: 36px;
+  }
+
+  /* ── กล้อง ──────────────────────────────────────────────────────────────
+     object-fit: contain ไม่ใช่ cover — ช่องนี้เป็นแนวตั้ง (ประมาณ 1220x1760)
+     แต่กล้องให้ภาพแนวนอน 4:3 หรือ 16:9  ถ้าใช้ cover จะเหลือภาพแค่ ~46% ของความกว้าง
+     คือครอปแขนที่เหวี่ยงออกข้างทิ้ง ผู้เล่นจะมองไม่เห็นแขนตัวเองทั้งที่โมเดลยังเห็น
+     (โมเดลอ่านจากเฟรมเต็มเสมอ การครอปเป็นเรื่องการแสดงผลล้วน ๆ)
+     แลกมาด้วยแถบดำบน-ล่าง ซึ่งยอมรับได้มากกว่าการซ่อนสิ่งที่กำลังให้คะแนน
+
+     ใช้ contain ทั้ง canvas ภาพและ canvas โครงกระดูก ทั้งสองใบมี intrinsic size
+     เท่ากัน (ขนาดเฟรมกล้อง) จึงวางทับกันพอดี
+
+     ห้ามพลิกด้วย CSS transform ที่นี่ — ภาพที่โชว์คือภาพที่พลิกแล้วจาก PoseCamera
+     ถ้าพลิกซ้ำ พิกัด landmark จะไม่ตรงกับภาพ */
+  #cam {
+    position: relative; flex: 1 1 auto; min-height: 0;
+    background: #000; border-radius: 28px; overflow: hidden;
+  }
+  #cam video { display: none; }
+  #cam canvas { position: absolute; inset: 0; width: 100%; height: 100%;
+                object-fit: contain; display: block; }
+
+  #grade {
+    position: absolute; left: 0; right: 0; top: 36%; text-align: center;
+    font-size: 150px; font-weight: 900; letter-spacing: .01em; opacity: 0;
+    text-shadow: 0 6px 40px #000d; pointer-events: none;
+  }
+  #grade.show { animation: pop .8s ease-out; }
+  @keyframes pop {
+    0%   { opacity: 0; transform: scale(.72); }
+    16%  { opacity: 1; transform: scale(1.14); }
+    58%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1); }
+  }
+
+  /* ── ตัวเลขสามช่อง ─────────────────────────────────────────────────────── */
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+           flex: 0 0 auto; }
+  .tile { background: var(--panel); border: 2px solid var(--line);
+          border-radius: 28px; padding: 44px 20px 40px; text-align: center; }
+  .tile .lbl { font-size: 36px; color: var(--dim); letter-spacing: .04em;
+               margin-bottom: 18px; }
+  .tile .val { font-size: 150px; font-weight: 800; line-height: 1;
+               font-variant-numeric: tabular-nums; }
+  .tile .unit { font-size: 52px; font-weight: 600; color: var(--dim); }
+  #tTime.low .val { color: var(--bad); }
+
+  /* ── feedback ──────────────────────────────────────────────────────────── */
+  #fb {
+    flex: 0 0 auto; min-height: 300px; display: grid; place-items: center;
+    background: var(--panel); border: 2px solid var(--line); border-radius: 28px;
+    padding: 24px 36px; text-align: center;
+    font-size: 62px; font-weight: 700; line-height: 1.25; color: var(--warn);
+  }
+  #fb.idle { color: var(--dim); font-weight: 400; font-size: 50px; }
+  #fb.good { color: var(--ok); }
+  #fb.err  { color: var(--bad); font-size: 46px; font-weight: 600; }
+
+  /* ── ปุ่มเดียว ─────────────────────────────────────────────────────────── */
+  #btn {
+    flex: 0 0 auto; height: 220px; width: 100%;
+    background: var(--accent); color: #06101d; border: 0; border-radius: 28px;
+    font-size: 72px; font-weight: 800; cursor: pointer;
+    font-family: inherit;
+  }
+  #btn:disabled { background: #2a303c; color: var(--dim); cursor: default; }
+  #btn.stop { background: #2a303c; color: var(--text); }
+</style>
+</head>
+<body>
+
+<div id="fit"><div id="stage">
+
+  <div id="cam">
+    <video id="video" playsinline muted></video>
+    <canvas id="overlay"></canvas>
+    <div id="grade"></div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile" id="tTime">
+      <div class="lbl">เวลา</div>
+      <div class="val" id="vTime">0:60</div>
+    </div>
+    <div class="tile">
+      <div class="lbl">จำนวนหมัด</div>
+      <div class="val" id="vReps">0</div>
+    </div>
+    <div class="tile">
+      <div class="lbl">ความแม่นยำ</div>
+      <div class="val" id="vAcc">—<span class="unit"></span></div>
+    </div>
+  </div>
+
+  <div id="fb" class="idle">กด เริ่ม แล้วยืนให้เห็นตั้งแต่สะโพกขึ้นมา</div>
+
+  <button id="btn">เริ่ม</button>
+
+</div></div>
+
+<script type="module">
+import { PoseCamera } from './pose-camera.js';
+import { JabScorer } from './exercise-scorer.js';
+
+const STAGE_W = 1300, STAGE_H = 2800;
+
+const qs = new URLSearchParams(location.search);
+const FREE = qs.get('free') === '1';
+const ROUND_SECONDS = Math.max(10, Number(qs.get('seconds')) || 60);
+
+const $ = (id) => document.getElementById(id);
+
+// ── ย่อแผ่นงานให้พอดีหน้าต่าง ───────────────────────────────────────────────
+// ทำด้วย JS เพราะ CSS ไม่มีทางได้ "อัตราส่วน" แบบไม่มีหน่วยจาก 100vw/1300px
+// มาใส่ scale() ได้ (calc คืนค่าเป็นความยาว ไม่ใช่ตัวเลข)
+function fit() {
+  const s = Math.min(innerWidth / STAGE_W, innerHeight / STAGE_H);
+  const el = $('fit');
+  el.style.transform = `scale(${s})`;
+  el.style.left = `${(innerWidth - STAGE_W * s) / 2}px`;
+  el.style.top = `${(innerHeight - STAGE_H * s) / 2}px`;
+}
+addEventListener('resize', fit);
+fit();
+
+// ── สถานะรอบ ────────────────────────────────────────────────────────────────
+const camera = new PoseCamera({ poseModelUrl: 'models/pose_landmarker_full.task' });
+let scorer = null;
+const round = { active: false, startedAt: 0, endsAt: 0, reps: 0, sum: 0 };
+
+function paint() {
+  $('vReps').textContent = round.reps;
+  // ความแม่นยำ = ความคล้ายท่าต้นแบบเฉลี่ยของหมัดที่นับได้ ไม่ใช่ค่าเฉลี่ยทุกเฟรม
+  // (เฟรมตอนตั้งการ์ดได้ 0% ตามที่ควรเป็น ถ้าเอามาเฉลี่ยด้วยตัวเลขจะไม่มีความหมาย)
+  $('vAcc').innerHTML = round.reps
+    ? `${Math.round(round.sum / round.reps)}<span class="unit">%</span>`
+    : '—<span class="unit"></span>';
+}
+
+// FREE นับขึ้น ปกตินับลง — ใช้ฟังก์ชันเดียวกัน ส่งจำนวนมิลลิวินาทีที่จะโชว์เข้ามา
+function clock(ms) {
+  const t = Math.max(0, Math.ceil(ms / 1000));
+  $('vTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  $('tTime').classList.toggle('low', !FREE && t <= 10 && round.active);
+}
+
+function say(text, kind = '') {
+  $('fb').textContent = text;
+  $('fb').className = kind;
+}
+
+let sayUntil = 0;
+function flash(text, kind, ms = 1400) {
+  say(text, kind);
+  sayUntil = performance.now() + ms;
+}
+
+let gradeTimer = null;
+function showGrade(text, color) {
+  const el = $('grade');
+  el.textContent = text;
+  el.style.color = color;
+  el.classList.remove('show');
+  void el.offsetWidth;                  // บังคับให้ animation เริ่มรอบใหม่
+  el.classList.add('show');
+  clearTimeout(gradeTimer);
+  gradeTimer = setTimeout(() => el.classList.remove('show'), 850);
+}
+
+const HINT = {
+  slow: 'ออกหมัดให้เร็วขึ้น',
+  extend: 'ยืดแขนให้สุดกว่านี้',
+  offpose: 'หันหน้าเข้ากล้องให้เห็นลำตัวและแขนทั้งสองข้าง',
+  nopose: 'ไม่เห็นตัวในกล้อง — ถอยออกให้เห็นสะโพกขึ้นมา',
+};
+const GRADE_COLOR = { PERFECT: 'var(--gold)', GOOD: 'var(--ok)', OK: 'var(--warn)' };
+
+function startRound() {
+  round.active = true;
+  round.reps = 0; round.sum = 0;
+  round.startedAt = performance.now();
+  round.endsAt = round.startedAt + ROUND_SECONDS * 1000;
+  scorer.reset();
+  paint();
+  clock(FREE ? 0 : ROUND_SECONDS * 1000);
+  $('btn').textContent = 'จบรอบ';
+  $('btn').className = 'stop';
+  flash('ชกได้เลย', 'good', 1000);
+}
+
+function endRound() {
+  round.active = false;
+  $('btn').textContent = 'เริ่มใหม่';
+  $('btn').className = '';
+  const acc = round.reps ? Math.round(round.sum / round.reps) : 0;
+  sayUntil = 0;
+  if (round.reps) say(`จบรอบ — ${round.reps} หมัด ความแม่นยำ ${acc}%`, 'good');
+  else say('ไม่มีหมัดที่นับได้ — ชกให้สุดแขนจนข้อศอกเหยียด แล้วดึงมือกลับ', '');
+}
+
+// ── โครงกระดูก ──────────────────────────────────────────────────────────────
+// วาดจาก landmark ของเฟรมที่ MediaPipe เพิ่งอ่าน (ภาพที่พลิกแล้ว) จึงทับตัวคนพอดี
+const BONES = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24]];
+const overlay = $('overlay'), ctx = overlay.getContext('2d');
+const video = $('video');
+let lastLandmarks = null, livePercent = 0, leadArm = null, viewAttached = false;
+
+function paintStage() {
+  if (!camera.running) return;
+  if (!viewAttached && camera.mirrorCanvas) {
+    $('cam').insertBefore(camera.mirrorCanvas, overlay);
+    viewAttached = true;
+  }
+  const w = video.videoWidth, h = video.videoHeight;
+  if (w && (overlay.width !== w || overlay.height !== h)) {
+    overlay.width = w; overlay.height = h;
+  }
+  ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+  const lm = lastLandmarks;
+  if (lm) {
+    const px = (i) => [lm[i].x * overlay.width, lm[i].y * overlay.height];
+    ctx.strokeStyle = '#4da3ff'; ctx.lineWidth = 5;
+    for (const [a, b] of BONES) {
+      const [x1,y1] = px(a), [x2,y2] = px(b);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+    // แขนนำย้อมสีตามคะแนนเฟรมนี้ ให้เห็นว่าระบบกำลังมองแขนไหนและฟอร์มใกล้แค่ไหน
+    if (leadArm && scorer) {
+      const idx = scorer.arms[leadArm];
+      ctx.strokeStyle = livePercent >= 80 ? '#ffd54a'
+                      : livePercent >= 60 ? '#3ddc84' : '#ff5c5c';
+      ctx.lineWidth = 11;
+      const [sx,sy] = px(idx[0]), [ex,ey] = px(idx[1]), [wx,wy] = px(idx[2]);
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.lineTo(wx,wy); ctx.stroke();
+    }
+    ctx.fillStyle = '#3ddc84';
+    for (const i of [11,12,13,14,15,16,23,24]) {
+      const [x,y] = px(i);
+      ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  requestAnimationFrame(paintStage);
+}
+
+// ── ลูปต่อเฟรม ──────────────────────────────────────────────────────────────
+camera.onFrame = (landmarks, nowMs) => {
+  lastLandmarks = landmarks;
+  if (!scorer) return;
+
+  const r = scorer.update(landmarks, nowMs);
+  livePercent = r.present ? r.percent : 0;
+  leadArm = r.present ? r.lead : null;
+
+  if (r.rep && round.active) {
+    round.reps += 1;
+    round.sum += r.rep.percent;
+    paint();
+    showGrade(r.rep.grade, GRADE_COLOR[r.rep.grade]);
+    flash(`${r.rep.grade} · ${Math.round(r.rep.percent)}%`,
+          r.rep.grade === 'OK' ? '' : 'good', 1100);
+  } else if (round.active && r.feedback && HINT[r.feedback]) {
+    // hint ไม่ทับข้อความเกรดที่ยังค้างอยู่
+    if (nowMs >= sayUntil) flash(HINT[r.feedback], '', 1200);
+  } else if (round.active && nowMs >= sayUntil) {
+    say(r.present ? 'ตั้งการ์ด แล้วชก jab ออกให้สุดแขน' : HINT.nopose, 'idle');
+  }
+
+  if (round.active) {
+    if (FREE) {
+      clock(nowMs - round.startedAt);
+    } else {
+      const left = round.endsAt - nowMs;
+      clock(left);
+      if (left <= 0) endRound();
+    }
+  }
+};
+
+// ── ปุ่มเดียวคุมทั้งหมด ──────────────────────────────────────────────────────
+$('btn').addEventListener('click', async () => {
+  if (round.active) { endRound(); return; }
+  if (camera.running) { startRound(); return; }
+
+  $('btn').disabled = true;
+  say('กำลังโหลดโมเดลและเปิดกล้อง…', 'idle');
+  try {
+    scorer = await JabScorer.load('../tfjs_build/jab_siamese/bundle.json');
+    await camera.init();
+    await camera.start(video);
+    paintStage();
+    $('btn').disabled = false;
+    startRound();
+  } catch (e) {
+    // ต้องโชว์ให้เห็นบนจอ หน้านี้ไม่มี panel สถานะ และบนมือถือก็ไม่มี console ให้ดู
+    say('เริ่มไม่สำเร็จ: ' + e.message, 'err');
+    $('btn').disabled = false;
+    $('btn').textContent = 'ลองอีกครั้ง';
+    console.error(e);
+  }
+});
+
+clock(FREE ? 0 : ROUND_SECONDS * 1000);
+paint();
+</script>
+</body>
+</html>

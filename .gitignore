@@ -1,0 +1,32 @@
+# ── ความลับ ──────────────────────────────────────────────────────────────
+# .env.local ที่ root เก็บ CARTESIA_API_KEY / THAILLM_API_KEY และของ backend
+# เก็บ SUPABASE_SERVICE_ROLE_KEY (สิทธิ์ admin ฐานข้อมูลเต็ม) — หลุดขึ้น git
+# ครั้งเดียวก็อยู่ใน history ตลอดไป ลบทีหลังไม่ช่วย ต้องออก key ใหม่อย่างเดียว
+.env
+.env.*
+!.env.example
+
+# keystore สำหรับเซ็น APK — ใครได้ไปก็ปล่อยแอปในชื่อคุณได้
+*.keystore
+*.jks
+
+# ── ของที่สร้างใหม่ได้ ───────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+
+# ── OS / editor ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vs/
+.idea/
+*.swp
+
+# โฟลเดอร์ย่อยมี .gitignore ของตัวเองสำหรับกฎเฉพาะ
+#   Unity/.gitignore         Library, Temp, Logs ของ Unity_Game
+#   AI_detection/.gitignore  venv, โมเดลที่ build ใหม่ได้
+#   backend/.gitignore       ของ Next.js

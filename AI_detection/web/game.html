@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Muayverse Pose — Game Mode</title>
+<!--
+  หน้าโหมดเล่นจริง — ต่างจาก index.html ที่เป็นหน้าทดสอบ
+
+  index.html  มีปุ่ม "เริ่มกล้อง" ให้กด มีแถบความมั่นใจ มี log  -> ใช้ตอนพัฒนา
+  game.html   เริ่มเองตอนโหลด ไม่มี UI เลย                      -> ใช้ตอนเล่นจริง
+
+  ทำไมต้องแยกไฟล์: ตอนเล่นจริง WebView ถูกซ่อนอยู่หลังจอเกม ไม่มีใครกดปุ่มได้
+  ถ้าใช้หน้าทดสอบ กล้องจะไม่มีวันเริ่ม แล้วเกมจะไม่ได้รับท่าอะไรเลยโดยไม่มีสัญญาณบอก
+
+  เปิดโหมดดีบักด้วย ?debug=1 -> โชว์สถานะกับท่าที่ส่งออกทับบนจอ ใช้ตอน build ครั้งแรก
+  ที่ยังอยากเห็นว่ากล้องติดไหม (ตั้ง Visible = true ใน PoseWebViewHost ด้วย)
+-->
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden;
+    /* โปร่งใสเพื่อให้เห็นจอเกมข้างหลัง ตอนซ่อนก็ไม่มีอะไรบัง */
+    background: transparent;
+    font: 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: #e7e9ee;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* ภาพกล้องไม่ต้องโชว์ตอนเล่นจริง แต่ยังต้องอยู่ใน DOM ให้ MediaPipe อ่านได้ */
+  #cam { position: fixed; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+  #dbg { display: none; }
+  body.debug #dbg {
+    display: block;
+    position: fixed; left: 0; top: 0; right: 0;
+    padding: 8px 10px;
+    background: rgba(10, 12, 16, .82);
+    font-family: ui-monospace, Consolas, monospace; font-size: 12px;
+    white-space: pre-wrap; max-height: 45vh; overflow-y: auto;
+  }
+  body.debug #cam {
+    width: 180px; height: auto; opacity: 1;
+    right: 8px; bottom: 8px; left: auto; top: auto;
+    transform: scaleX(-1); border-radius: 8px;
+  }
+  .ok { color: #3ddc84; } .bad { color: #ff5c5c; } .warn { color: #ffb02e; }
+</style>
+</head>
+<body>
+
+<video id="cam" playsinline muted autoplay></video>
+<div id="dbg">กำลังเริ่ม…</div>
+
+<!-- โหลด tfjs จากที่โฮสต์เองก่อน ถ้าไม่มีไฟล์หรือโหลดพลาดค่อยไป CDN
+     (เน็ตบางที่บล็อก CDN ซึ่งจะทำให้เกมพังทั้งที่เน็ตใช้ได้) -->
+<script src="vendor/tf.min.js"
+        onerror="var s=document.createElement('script');
+                 s.src='https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+                 s.onerror=function(){window.__tfFailed=true;};
+                 document.head.appendChild(s);"></script>
+<script type="module">
+import { PoseDetector, transportFromUrl } from './pose-detector.js';
+
+const DEBUG = new URLSearchParams(location.search).has('debug');
+if (DEBUG) document.body.classList.add('debug');
+
+const dbg = document.getElementById('dbg');
+const lines = [];
+function log(msg, cls = '') {
+  const t = new Date().toLocaleTimeString('th-TH', { hour12: false });
+  lines.push(`<span class="${cls}">${t}  ${msg}</span>`);
+  if (lines.length > 40) lines.shift();
+  if (DEBUG) { dbg.innerHTML = lines.join('\n'); dbg.scrollTop = dbg.scrollHeight; }
+  console.log('[game]', msg);
+}
+
+const detector = new PoseDetector({
+  modelUrl: '../tfjs_build/pose_action/model/model.json',
+  metaUrl: '../tfjs_build/pose_action/meta.json',
+  poseModelUrl: 'models/pose_landmarker_full.task',
+  // auto เลือก unity-webview เองเมื่ออยู่ใน WebView แต่บังคับได้ด้วย
+  // ?transport=unity-webview / websocket ตอนอยากทดสอบปลายทางเดียวเจาะจง
+  // รัวหมัดเดิมติดกันแล้วให้นับทุกหมัด — 0 = ปิด (หมัดเดิมที่ค้างไว้จะนับครั้งเดียว)
+  repeatSameAfterMs: 500,
+  transport: transportFromUrl('auto'),
+  // เล่นจริง WebView ถูกซ่อน เกมจึงต้องรู้เองว่าตอนนี้เห็นคนอยู่ไหม
+  reportPresenceToUnity: true,
+  // ให้เกมโชว์ได้ว่าโมเดลกำลังอ่านท่าผู้เล่นว่าอะไร แบบ realtime
+  reportLivePose: true,
+  // ส่งภาพกล้องย่อส่วนให้ Unity วาดเป็น preview ในเกม
+  // (Unity เปิดกล้องเองไม่ได้ เพราะ WebView ถือกล้องอยู่)
+  sendPreviewToUnity: true,
+  logEvents: DEBUG,
+});
+
+detector.onStatus = (m) => log(m);
+detector.onPose = ({ pose, confidence }) =>
+  log(`-> ${pose} ${confidence.toFixed(3)}`, 'ok');
+
+// ── เริ่มเอง ไม่ต้องมีใครกด ────────────────────────────────────────────────────
+//
+// getUserMedia ไม่ได้บังคับว่าต้องมี user gesture — มันบังคับแค่ permission กับ
+// secure context ซึ่งฝั่ง Android จัดการให้แล้วตอนแอปขอ CAMERA permission
+// และ gree ก็ grant VIDEO_CAPTURE ให้ใน onPermissionRequest
+//
+// ถ้าเริ่มไม่สำเร็จจะลองใหม่เรื่อย ๆ แบบถอยห่างขึ้น เพราะสาเหตุที่พบบ่อยคือ
+// "แอปยังขอ permission ไม่เสร็จตอนหน้าเว็บโหลด" ซึ่งรอสักครู่แล้วได้เอง
+let attempt = 0;
+let started = false;
+
+async function boot() {
+  attempt++;
+  try {
+    if (!detector.meta) {
+      log('โหลดโมเดล…');
+      await detector.init();
+    }
+    log('เปิดกล้อง…');
+    await detector.start(document.getElementById('cam'));
+
+    started = true;
+    log('พร้อมแล้ว', 'ok');
+    detector.emitStatus('ready', `attempt ${attempt}`);
+  } catch (e) {
+    const msg = `${e.name || 'Error'}: ${e.message || e}`;
+    log(`เริ่มไม่สำเร็จ — ${msg}`, 'bad');
+
+    // แยกให้ชัดว่าเป็นเรื่องกล้องหรือเรื่องโมเดล เพราะวิธีแก้คนละทางกันคนละโลก
+    const cameraProblem = /NotAllowed|NotFound|NotReadable|Permission|SecurityError|getUserMedia/i
+      .test(msg);
+    detector.emitStatus(cameraProblem ? 'nocamera' : 'error', msg);
+
+    const wait = Math.min(1000 * attempt, 8000);
+    log(`ลองใหม่ใน ${wait / 1000}s`, 'warn');
+    setTimeout(boot, wait);
+  }
+}
+
+// รอให้ tfjs พร้อมก่อนค่อยเริ่ม
+//
+// ตัวหลักโหลดแบบ blocking แต่ถ้าพลาดแล้วตกไป CDN ตัวสำรองจะโหลดแบบ async
+// จึงยังไม่พร้อมตอนสคริปต์นี้รัน ต้องรอจริง ๆ ไม่ใช่เช็คครั้งเดียว
+(async function waitForTf() {
+  const deadline = Date.now() + 20000;
+  while (!globalThis.tf && Date.now() < deadline && !globalThis.__tfFailed) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (!globalThis.tf) {
+    log('โหลด TensorFlow.js ไม่ได้ทั้งจากเครื่องและ CDN', 'bad');
+    return;   // ยังไม่มี detector ให้ส่งสถานะ จึงบอกได้แค่บนหน้าเว็บ
+  }
+  boot();
+})();
+
+// ── กล้องหลุดกลางทาง ──────────────────────────────────────────────────────────
+// เกิดได้จริงบนมือถือ: ผู้เล่นสลับไปแอปอื่นแล้วระบบยึดกล้องไป พอกลับมา track ตาย
+// ไม่ตรวจตรงนี้ = เกมเงียบไปเฉย ๆ ตลอดกาลโดยไม่มีใครรู้ว่าทำไม
+setInterval(() => {
+  if (!started || !detector.stream) return;
+  const live = detector.stream.getVideoTracks().some((t) => t.readyState === 'live');
+  if (!live) {
+    log('กล้องหลุด — เริ่มใหม่', 'bad');
+    detector.emitStatus('nocamera', 'track ended');
+    started = false;
+    detector.stop();
+    attempt = 0;
+    boot();
+  }
+}, 2000);
+
+// หน้าเว็บกลับมา foreground แล้วกล้องไม่ทำงาน — ลองใหม่
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !started) {
+    log('กลับมา foreground — ลองเริ่มใหม่', 'warn');
+    attempt = 0;
+    boot();
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/NextJS Learning/my-app/**)",
+      "Bash(grep -vE '^\\\\.$|^\\\\.\\\\.$')",
+      "Read(//c/Users/NextJS Learning/my-app/prisma/**)",
+      "Bash(cd \"/c/Users/NextJS Learning/my-app\")",
+      "Bash(ls -la prisma/migrations)",
+      "Bash(sed -E 's/\\(:\\\\/\\\\/[^:]+:\\)[^@]+\\(@\\)/\\\\1****\\\\2/g; s/\\(password=\\)[^ &]+/\\\\1****/gi' .env)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('scripts:',JSON.stringify\\(p.scripts,null,2\\)\\); console.log\\('has bcryptjs:', !!\\(p.dependencies?.bcryptjs||p.devDependencies?.bcryptjs\\)\\); console.log\\('prisma ver:', p.dependencies?.['@prisma/client']||p.devDependencies?.prisma\\)\")",
+      "Read(//c/Users/NextJS Learning/my-app/lib/**)",
+      "PowerShell($raw = Get-Content \"D:\\\\6000.0.49f1\\\\modules.json\" -Raw; $i = $raw.IndexOf\\('\"id\":\"webgl\"'\\); if \\($i -lt 0\\) { $i = $raw.IndexOf\\('\"id\": \"webgl\"'\\) }; if \\($i -ge 0\\) { $raw.Substring\\($i, 400\\) } else { Write-Output \"webgl id string not found - trying regex\"; [regex]::Matches\\($raw,'webgl'\\) | Select-Object -First 3 Index })",
+      "Bash(grep -o \"DATABASE_URL=.\\\\{0,30\\\\}\" \"c:/Users/NextJS Learning/my-app/.env\")",
+      "PowerShell(Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -in @\\('C','D'\\) } | Select-Object Name, @{n='FreeGB';e={[math]::Round\\($_.Free/1GB,1\\)}}, @{n='UsedGB';e={[math]::Round\\($_.Used/1GB,1\\)}} | Format-Table -AutoSize)",
+      "PowerShell(Get-ChildItem \"D:\\\\6000.0.49f1\\\\Editor\\\\Data\\\\PlaybackEngines\" -Name -ErrorAction SilentlyContinue; Write-Output \"--- WebGLSupport size ---\"; if \\(Test-Path \"D:\\\\6000.0.49f1\\\\Editor\\\\Data\\\\PlaybackEngines\\\\WebGLSupport\"\\) { \"{0:N2} GB\" -f \\(\\(Get-ChildItem \"D:\\\\6000.0.49f1\\\\Editor\\\\Data\\\\PlaybackEngines\\\\WebGLSupport\" -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum\\).Sum/1GB\\) })",
+      "PowerShell(Get-Item \"D:\\\\ticta\\\\TICTA\\\\TICTA_Game\\\\ProjectSettings\\\\ProjectSettings.asset\" | Select-Object @{n='LastWrite';e={$_.LastWriteTime}}; Write-Output \"--- now ---\"; Get-Date -Format \"dd/MM/yyyy HH:mm:ss\")",
+      "Bash(grep -o \"m_SizeDelta: {x: 1[0-9][0-9][0-9], y: [0-9]*}\" FrontendAPP.unity)",
+      "Bash(grep -o \"m_ReferenceResolution: {x: [0-9]*, y: [0-9]*}\" SampleScene.unity)",
+      "Bash(grep -o \"m_SizeDelta: {x: [0-9.]*, y: [0-9.]*}\" \"d:/ticta/TICTA/TICTA_Game/Assets/Scenes/FrontendAPP.unity\")",
+      "Bash(grep -o \"m_ReferenceResolution: {x: [0-9]*, y: [0-9]*}\" Assets/Scenes/FrontendAPP.unity)",
+      "Bash(awk '{print $6, $7}')"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\NextJS Learning\\my-app\\prisma",
+      "c:\\Users\\NextJS Learning\\my-app\\app\\api\\auth\\register",
+      "c:\\Users\\NextJS Learning\\my-app\\app\\api\\auth\\login"
+    ]
+  }
+}

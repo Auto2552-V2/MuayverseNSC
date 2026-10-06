@@ -1,0 +1,44 @@
+{
+  "actions": [
+    "jab",
+    "cross",
+    "hook",
+    "uppercut",
+    "idle",
+    "block"
+  ],
+  "sequence_length": 36,
+  "n_features": 60,
+  "n_raw": 132,
+  "pose_idx": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    19,
+    20,
+    23,
+    24
+  ],
+  "aspect": 1.3333333333333333,
+  "frame_size": [
+    640,
+    480
+  ],
+  "mirror": true,
+  "feature_layout": "concat[pos(10x3), vel(10x3)] per frame",
+  "normalisation": "x*=aspect; centre mid-hip(23,24); scale=|mid_shoulder-mid_hip| clamp 1e-6",
+  "train_sessions": [
+    0,
+    1
+  ],
+  "val_sessions": [
+    2
+  ],
+  "test_sessions": [
+    3
+  ],
+  "seed": 1234
+}
