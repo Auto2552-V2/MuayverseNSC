@@ -101,27 +101,4 @@ Assets/Scripts/
 
 URL ของ backend ตั้งที่ช่อง `Base Url` ของ `AuthApi` / `TherapyApi` / `MinigameApi` (ค่าเริ่มต้น `http://localhost:3000`)
 
----
-
-## ข้อควรระวัง
-
-- **เซฟซีน (`Ctrl+S`) ทุกครั้งหลังปรับค่า** — ถ้า title bar มี `*` แปลว่ายังไม่เซฟ
-  ค่าที่ปรับไว้จะหายตอนปิด Unity และไฟล์ที่ push ขึ้น git จะเป็นค่าเก่า
-- **Input System ใหม่เท่านั้น** — `Input.GetKeyDown` คอมไพล์ผ่านแต่พังตอนรัน ใช้ `Keyboard.current`
-- **ห้ามตั้งชื่อคลาส `UIManager`** — มีอยู่แล้วใน global namespace จะคอมไพล์ไม่ผ่านทั้งโปรเจกต์
-- UI ใช้ **TextMeshPro** (`TMP_Text`) ประกาศเป็น `UI.Text` จะลากใส่ไม่ได้
-- `EnemyRandomAnimator` บน `Enemy_Guard1` ต้องปิดไว้ ไม่งั้นแย่งสั่ง animation
-- ข้อความที่มาจาก WebSocket/WebView มาจาก thread อื่น ต้องเข้าคิวแล้วแกะใน `Update()`
-
----
-
-## Build Android
-
-ยังไม่พร้อมใช้แบบไม่ต่อคอม — ต้องมี host https สำหรับหน้าเว็บจับท่าและ backend
-ทดสอบแบบเสียบสายได้ด้วย `adb reverse` ต้องเปลี่ยนค่าเหล่านี้ก่อน build
-
-1. เปิด `PoseWebViewHost` ตั้ง `Url` = `http://localhost:8000/web/game.html`
-2. Player Settings → Android → `Allow downloads over HTTP` = Development builds only
-3. Package name ยังเป็นของ template (`com.UnityTechnologies…urpblank`) ควรเปลี่ยนก่อนแจก
-
 รายละเอียดเต็มดู [`CLAUDE.md`](../CLAUDE.md)
