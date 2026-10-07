@@ -206,7 +206,15 @@ npm run serve -- 8001
 
 ### Confusion matrix — ชุด test
 
-แถว = ท่าที่ทำจริง · คอลัมน์ = ท่าที่โมเดลทาย · ทแยงมุม = ทายถูก
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="AI_detection%20(Sparring)/docs/confusion_test_dark.png">
+  <img alt="Confusion matrix ชุด test: ถูก 84 จาก 90 คลิป (93.3%) โดย jab และ cross ถูกทายเป็น hook รวม 3 คลิป" src="AI_detection%20(Sparring)/docs/confusion_test_light.png" width="640">
+</picture>
+
+<details>
+<summary>ดูเป็นตารางตัวเลข</summary>
+
+แถว = ท่าที่ทำจริง · คอลัมน์ = ท่าที่โมเดลทาย
 
 | จริง \ ทาย | jab | cross | hook | uppercut | idle | block |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -216,6 +224,8 @@ npm run serve -- 8001
 | **uppercut** | · | · | · | **14** | 1 | · |
 | **idle** | · | · | · | · | **15** | · |
 | **block** | · | · | · | · | · | **15** |
+
+</details>
 
 | ท่า | Recall | Precision |
 |---|:-:|:-:|
@@ -240,6 +250,11 @@ npm run serve -- 8001
 <details>
 <summary>Confusion matrix — ชุด validation (94.4%)</summary>
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="AI_detection%20(Sparring)/docs/confusion_val_dark.png">
+  <img alt="Confusion matrix ชุด validation: ถูก 85 จาก 90 คลิป (94.4%)" src="AI_detection%20(Sparring)/docs/confusion_val_light.png" width="640">
+</picture>
+
 | จริง \ ทาย | jab | cross | hook | uppercut | idle | block |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | **jab** | **14** | 1 | · | · | · | · |
@@ -250,6 +265,8 @@ npm run serve -- 8001
 | **block** | 1 | · | · | · | · | **14** |
 
 </details>
+
+รูปสร้างจาก `scripts/plot_confusion.py` ซึ่งคำนวณใหม่จาก `pose_action.h5` ทุกครั้ง เทรนโมเดลใหม่แล้วรันสคริปต์นี้ซ้ำ รูปจะตรงกับโมเดลเสมอ ส่วนตัวเลขในตารางต้องแก้ตามเอง
 
 `scripts/train_pose_model.py` พิมพ์ตารางชุดเดียวกันนี้ออกมาตอนเทรนจบ ถ้าเทรนใหม่ให้อัปเดตตัวเลขในส่วนนี้ด้วย
 
