@@ -79,12 +79,12 @@ npm test
 
 ชื่อโฟลเดอร์มีเว้นวรรคและวงเล็บ เวลาพิมพ์ใน terminal **ต้องครอบด้วยเครื่องหมายคำพูดเสมอ**
 
-### 4. Python (เฉพาะถ้าจะใช้ Python client)
+### 4. Python (สำหรับ Python client, การเทรน และวาด confusion matrix)
 
 ```powershell
 cd "AI_detection (Sparring)"
 py -3.10 -m venv .venv
-.venv\Scripts\python.exe -m pip install tensorflow==2.15.0 mediapipe==0.10.9 opencv-python numpy==1.26.4 websockets
+.venv\Scripts\python.exe -m pip install tensorflow==2.15.0 mediapipe==0.10.9 opencv-python numpy==1.26.4 websockets scikit-learn==1.7.2 matplotlib==3.10.9
 ```
 
 ---
@@ -172,7 +172,7 @@ npm run serve -- 8001
 เปิด <http://localhost:8001/web/exercise-play.html>
 
 ใส่ `-- 8001` เพราะโหมดต่อสู้ใช้พอร์ต 8000 อยู่ ถ้าเปิดพร้อมกันพอร์ตจะชน
-รายละเอียดเพิ่มเติมดู [`ExerciseMode/README.md`](ExerciseMode/README.md)
+รายละเอียดเพิ่มเติมดู [`ExerciseMode/web/README.md`](ExerciseMode/web/README.md)
 
 ---
 
@@ -267,6 +267,8 @@ npm run serve -- 8001
 </details>
 
 รูปสร้างจาก `scripts/plot_confusion.py` ซึ่งคำนวณใหม่จาก `pose_action.h5` ทุกครั้ง เทรนโมเดลใหม่แล้วรันสคริปต์นี้ซ้ำ รูปจะตรงกับโมเดลเสมอ ส่วนตัวเลขในตารางต้องแก้ตามเอง
+
+ถ้าเปิด `LSTM learn/Classification_Pose.ipynb` จะเห็นชุด test **95.6%** ไม่ใช่ 93.3% — notebook เทรนโมเดลอีกรอบที่ไม่ได้บันทึกเก็บไว้ ตัวเลขในหน้านี้เป็นของ `pose_action.h5` ที่เกมใช้จริง (ดู [`LSTM learn/README.md`](<AI_detection (Sparring)/LSTM learn/README.md>))
 
 `scripts/train_pose_model.py` พิมพ์ตารางชุดเดียวกันนี้ออกมาตอนเทรนจบ ถ้าเทรนใหม่ให้อัปเดตตัวเลขในส่วนนี้ด้วย
 

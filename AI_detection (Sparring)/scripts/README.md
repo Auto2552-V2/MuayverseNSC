@@ -118,7 +118,9 @@ feeding the model raw landmarks produces confident nonsense rather than a crash.
 
 ## `action.h5` is the OLD model -- not used by the game
 
-`(30, 1662) -> 3 classes`, from `LSTM-learn.ipynb`. 1662 features means
-MediaPipe **Holistic** (pose + face mesh + both hands), a different input
-pipeline entirely. Kept only for reference; `tfjs_build/action/` and
+`(30, 1662) -> 3 classes`, from `LSTM-learn.ipynb`. The classes are
+`hello`, `thanks`, `iloveyou` -- this is a **sign-language tutorial** the
+project started from, not a boxing model. 1662 features means MediaPipe
+**Holistic** (pose + face mesh + both hands), a different input pipeline
+entirely. Kept only for reference; `tfjs_build/action/` and
 `tfjs_build/action_uint16/` are its builds.
